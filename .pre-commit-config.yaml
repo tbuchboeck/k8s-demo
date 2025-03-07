@@ -1,0 +1,34 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [ --allow-multiple-documents ]
+      - id: check-json
+      - id: pretty-format-json
+        args: [ --autofix ]
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: kustomize
+        name: kustomize-testing
+        language: docker_image
+        entry: --entrypoint kustomize quay.io/argoproj/argocd
+        args: [ build, k8s/overlays/testing ]
+        always_run: false
+        pass_filenames: false
+        files: (k8s/base|k8s/overlays/testing)
+      - id: kustomize
+        name: kustomize-production
+        language: docker_image
+        entry: --entrypoint kustomize quay.io/argoproj/argocd
+        args: [ build, k8s/overlays/production ]
+        always_run: false
+        pass_filenames: false
+        files: (k8s/base|k8s/overlays/production)

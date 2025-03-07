@@ -1,0 +1,19 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: demo-scale
+spec:
+  scaleTargetRef:
+    kind: Deployment
+    name: podinfo
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  cooldownPeriod: 300
+  pollingInterval: 60
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://rancher-monitoring-prometheus.cattle-monitoring-system:9090/
+        metricName: http-requests
+        query: sum(go_goroutines{container="podinfo"})
+        threshold: "30"

@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+spec:
+  minReadySeconds: 3
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 60
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: podinfo
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/component: podinfo
+                topologyKey: kubernetes.io/hostname
+              weight: 100
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.5.4
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsUser: 65534
+          ports:
+            - name: http
+              containerPort: 9898
+              protocol: TCP
+            - name: http-metrics
+              containerPort: 9797
+              protocol: TCP
+            - name: grpc
+              containerPort: 9999
+              protocol: TCP
+          command:
+            - ./podinfo
+            - --port=9898
+            - --port-metrics=9797
+            - --grpc-port=9999
+            - --grpc-service-name=podinfo
+            - --random-delay=false
+            - --random-error=false
+          envFrom:
+            - configMapRef:
+                name: podinfo-cm
+          livenessProbe:
+            exec:
+              command:
+                - podcli
+                - check
+                - http
+                - localhost:9898/healthz
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - podcli
+                - check
+                - http
+                - localhost:9898/readyz
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: 64  # disable CPU limits
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+      serviceAccountName: demo

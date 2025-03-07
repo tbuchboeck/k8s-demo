@@ -1,0 +1,43 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: integration-test
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+      containers:
+        - name: curl
+          image: rancher/curlimages-curl:7.73.0
+          args: [ "-vsS", "https://$(DEMO_SERVICE)/" ]
+          envFrom:
+            - configMapRef:
+                name: test-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 50M
+            limits:
+              cpu: 64  # disable CPU limits
+              memory: 50M
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsUser: 100
+      restartPolicy: Never
+      serviceAccountName: demo

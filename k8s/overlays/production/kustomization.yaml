@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: k8s-demo
+resources:
+  - ../../base
+  - ingress-intern.yaml
+  - ingress-services.yaml
+commonLabels:
+  app.kubernetes.io/name: demo
+configMapGenerator:
+  - name: podinfo-cm
+    literals:
+      - PODINFO_LEVEL=info
+    behavior: merge
+  - name: test-config
+    literals:
+      - DEMO_SERVICE=my.demo.has-to-be.services
+patchesJson6902:
+  - target:
+      kind: ScaledObject
+      name: demo-scale
+    patch: |-
+      - op: add
+        path: /spec/minReplicaCount
+        value: 3

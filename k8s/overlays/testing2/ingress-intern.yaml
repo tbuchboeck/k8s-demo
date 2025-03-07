@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-intern
+  annotations:
+    cert-manager.io/issuer: htb-acm-pca
+    cert-manager.io/issuer-kind: AWSPCAClusterIssuer
+    cert-manager.io/issuer-group: awspca.cert-manager.io
+    cert-manager.io/common-name: demo2.test.has-to-be.intern
+    cert-manager.io/usages: server auth
+    cert-manager.io/revision-history-limit: 3
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: demo2.test.has-to-be.intern
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: podinfo
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - demo2.test.has-to-be.intern
+      secretName: demo-intern-tls

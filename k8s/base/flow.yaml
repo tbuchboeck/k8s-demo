@@ -1,0 +1,21 @@
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: Flow
+metadata:
+  name: demo
+spec:
+  filters:
+    # the parser filter is needed to get rid of the "log" field that contains the original log line
+    - parser:
+        key_name: log
+        remove_key_name_field: true
+        reserve_data: true
+        parse:
+          type: json
+    - tag_normaliser:
+        format: ${namespace_name}
+  globalOutputRefs:
+    - elastic-cloud
+  match:
+    - select:
+        labels:
+          app.kubernetes.io/name: demo

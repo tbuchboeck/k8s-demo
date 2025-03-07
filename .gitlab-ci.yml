@@ -1,0 +1,56 @@
+---
+stages:
+  - test
+  - build
+  - deploy
+
+default:
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12
+  tags:
+    - docker
+
+pre-commit:
+  stage: test
+  before_script:
+    - pip install pre-commit
+  variables:
+    SKIP: kustomize
+  script:
+    - pre-commit run --all-files
+
+kube-linter:
+  stage: test
+  image: $CI_REGISTRY/hastobe/wizards/argo/cli
+  script:
+    - |
+      for overlay in $(ls -d k8s/overlays/*); do
+        kustomize build ${overlay} | kube-linter lint - || exit 1
+      done
+
+deploy:
+  stage: deploy
+  dependencies:
+    - pre-commit
+    - kube-linter
+  before_script:
+    - export ARGOCD_AUTH_TOKEN=${_ARGOCD_AUTH_TOKEN}
+    - export ARGOCD_SERVER=${_ARGOCD_SERVER}
+    - argocd version
+  image: $CI_REGISTRY/hastobe/wizards/argo/cli
+  variables:
+    APPNAME: '${CI_PROJECT_NAME}-${CI_ENVIRONMENT_NAME}'
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH # only deploy to test on default branch
+      variables:
+        _ARGOCD_AUTH_TOKEN: $ARGOCD_AUTH_TOKEN_TESTING
+        _ARGOCD_SERVER: $ARGOCD_SERVER_TESTING
+        APPNAME: '${CI_PROJECT_NAME}-testing'
+    - if: $CI_COMMIT_TAG # deploy to production if tag was given
+      variables:
+        _ARGOCD_AUTH_TOKEN: $ARGOCD_AUTH_TOKEN
+        _ARGOCD_SERVER: $ARGOCD_SERVER
+        APPNAME: '${CI_PROJECT_NAME}-production'
+  script:
+    - argocd app set ${APPNAME} --revision ${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}
+    - argocd app sync ${APPNAME} --prune --timeout 60
+    - argocd app wait ${APPNAME} --timeout 60
